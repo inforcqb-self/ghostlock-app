@@ -94,26 +94,33 @@ jobs:
           make ghostlock
           "${{ runner.temp }}/ondk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-all ghostlock || true
 
-      # Both artifacts are the **pinned** SukiSU-Ultra build `main@4c15fca1` (SukiSU-Ultra/SukiSU-Ultra,
-      # CI run 37934517573, 2026-10-09), committed under `prebuilt/sukisu-ultra-4c15fca1/`:
+      # The two payloads have two provenances on purpose (see prebuilt/sukisu-ultra-3877-7a1c0438/README.md):
       #
-      #  * `ksud` (the standalone aarch64 artifact; the kernel module is packed *inside* it, so there
-      #    is no separate .ko) -> jniLibs/arm64-v8a/libksud.so. The chain calls it as
-      #    `ksud resetprop …` (busybox style), and `98ca011` installs this same copy to
-      #    /data/adb/ksud before `late-load`.
-      #  * the manager APK itself -> `assets/device/sukisu-manager.apk`. It is bundled because the
-      #    device must not have to reach GitHub (国内网络到 GitHub 不稳): the app pushes it and the
-      #    chain installs it with root (`pm install -r`).
+      #  * `ksud` comes from **our own SukiSU fork** (`inforcqb/SukiSU-Ultra`), branch `ci` =
+      #    upstream main `223897c7` + one ported KernelSU commit, `7a1c0438` ("sync: port
+      #    KernelSU's selinux hide fix (#3877) verbatim", kernel/feature/selinux_hide.c
+      #    +214/-125). It is built through that fork's PR #1 (`ci` → `main`), i.e. the
+      #    `pull_request` path with a temporary keystore -- CI run 38119744728, artifact
+      #    `ksud-aarch64-linux-android`. The kernel module is packed *inside* ksud, so there is no
+      #    separate .ko. -> jniLibs/arm64-v8a/libksud.so; the chain calls it as `ksud resetprop …`
+      #    (busybox style) and `98ca011` installs this same copy to /data/adb/ksud before `late-load`.
+      #  * the manager APK stays **upstream's official** build (SukiSU-Ultra/SukiSU-Ultra CI run
+      #    37934517573, main@4c15fca1) -> `assets/device/sukisu-manager.apk`. It is bundled because
+      #    the device must not have to reach GitHub (国内网络到 GitHub 不稳): the app pushes it and the
+      #    chain installs it with root (`pm install -r`). Keeping the official one is what makes that
+      #    install a no-op upgrade: the fork's LKM pins **two** manager certificates -- the official
+      #    one (947ae944…) and that run's temporary PR key (78e5c47c…), both verified with apksigner --
+      #    so the fork-built ksud accepts the official manager.
       #
       # Pinned copies instead of a fetch, because another repository's CI artifacts need a token this
       # job does not have. The sha256 below is what makes the pin real: a silent swap fails the build.
-      - name: Stage the pinned ksud + manager (SukiSU-Ultra main@4c15fca1)
+      - name: Stage the pinned ksud + manager (ksud: our fork ci@7a1c0438, i.e. KernelSU #3877)
         env:
-          KSUD_SHA256: a27b0842d31ae34028dff556308c194ac8fb4eaf7732696fbf9bcf8507d49c71
+          KSUD_SHA256: d7fec18cd9c2bc7b6e437797e3ac8898449187b51b46698cc3dc59ffa21b21b6
           MANAGER_SHA256: d3b07d2638745e79faa765c9bfe9281269414399e0550a13cc186a88e645fbb4
         run: |
           set -euo pipefail
-          SRC=prebuilt/sukisu-ultra-4c15fca1
+          SRC=prebuilt/sukisu-ultra-3877-7a1c0438
           test -s "$SRC/ksud"
           test -s "$SRC/sukisu-manager.apk"
           mkdir -p app/src/main/jniLibs/arm64-v8a app/src/main/assets/device

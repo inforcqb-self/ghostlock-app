@@ -32,24 +32,32 @@ Keep-this-in-mind facts about the vendored copies:
 ## Also shipped in the APK: SukiSU-Ultra's `ksud` and its manager app
 
 Neither is compiled here. The build step `Stage the pinned ksud + manager` copies two files out of
-`prebuilt/sukisu-ultra-4c15fca1/` (their sha256 is asserted in the workflow, and the provenance is in
-that directory's README) into the APK:
+`prebuilt/sukisu-ultra-3877-7a1c0438/` (their sha256 is asserted in the workflow, and the provenance
+is in that directory's README) into the APK. They have two different provenances on purpose:
 
-* `lib/arm64-v8a/libksud.so` — the standalone `ksud`; the chain invokes it as `ksud resetprop …`
-  (busybox style), by absolute path, from the app's own copy (the private staged directory, and
-  `98ca011` additionally installs it to `/data/adb/ksud` before `late-load`).
-  Pinned: `SukiSU-Ultra/SukiSU-Ultra` CI run `37934517573`, branch `main`, HEAD `4c15fca1`
-  (2026-10-09), artifact `ksud-aarch64-linux-android`, sha256
-  `a27b0842d31ae34028dff556308c194ac8fb4eaf7732696fbf9bcf8507d49c71`, 6965184 bytes. The kernel
-  module is packed **inside** it (`pack_lkm`), which is why no separate `.ko` is shipped.
-* `assets/device/sukisu-manager.apk` — the manager APK from the same run
-  (`SukiSU_v4.2.0_40965-release.apk`, sha256
+* `lib/arm64-v8a/libksud.so` — the standalone `ksud`, **built by this project's own fork**
+  `inforcqb/SukiSU-Ultra`, whose branch `ci` is upstream main `223897c7` plus one ported KernelSU
+  commit: `7a1c0438` "sync: port KernelSU's selinux hide fix (#3877) verbatim"
+  (`kernel/feature/selinux_hide.c`, +214/−125, from `tiann/KernelSU@a85dcbcf`). Built through that
+  fork's PR #1 (`ci` → `main`, the `pull_request` path with a temporary keystore), CI run
+  `38119744728`, artifact `ksud-aarch64-linux-android`, sha256
+  `d7fec18cd9c2bc7b6e437797e3ac8898449187b51b46698cc3dc59ffa21b21b6`, 6999648 bytes. The chain
+  invokes it as `ksud resetprop …` (busybox style), by absolute path, from the app's own copy (the
+  private staged directory, and `98ca011` additionally installs it to `/data/adb/ksud` before
+  `late-load`). The kernel module is packed **inside** it (`pack_lkm`), which is why no separate
+  `.ko` is shipped.
+* `assets/device/sukisu-manager.apk` — **upstream's official** manager APK
+  (`SukiSU-Ultra/SukiSU-Ultra` CI run `37934517573`, `main@4c15fca1`, file
+  `SukiSU_v4.2.0_40965-release.apk`, sha256
   `d3b07d2638745e79faa765c9bfe9281269414399e0550a13cc186a88e645fbb4`), so a device that cannot reach
   GitHub still gets a manager: the chain pushes it and runs `pm install -r` with root. Its package is
-  `com.sukisu.ultra`, which is what `ChainSpec.KSU_MANAGER_PACKAGE` names.
+  `com.sukisu.ultra`, which is what `ChainSpec.KSU_MANAGER_PACKAGE` names. It stays the official
+  build because the fork's LKM pins **two** manager certificates — the official one and that run's
+  temporary PR key (both verified with `apksigner`) — so the fork-built `ksud` accepts it and the
+  device-side install remains a no-op upgrade.
 
-The pin before this one was a KernelSU `v3.3.0-69-gdf03912f` pair (see
-`prebuilt/kernelsu-3.3.0-69-gdf03912f/README.md` in git history) — committed rather than fetched
+The pin before this one was an upstream `main@4c15fca1` pair, and before that a KernelSU
+`v3.3.0-69-gdf03912f` pair (their READMEs are in git history) — committed rather than fetched
 for the same reason: another repository's CI artifacts need a token this workflow does not have,
 and a pinned pair with asserted sha256s makes the build reproducible.
 
