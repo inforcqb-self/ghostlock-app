@@ -114,7 +114,10 @@ jobs:
       #
       # Pinned copies instead of a fetch, because another repository's CI artifacts need a token this
       # job does not have. The sha256 below is what makes the pin real: a silent swap fails the build.
-      - name: Stage the pinned ksud + manager (ksud: our fork ci@7a1c0438, i.e. KernelSU #3877)
+      # The step name is quoted on purpose: a plain YAML scalar cannot contain ": " (the first
+      # version of this line broke the whole workflow file -- the run failed in 0s with
+      # "workflow file issue" and no jobs).
+      - name: "Stage the pinned ksud + manager (ksud from our fork ci@7a1c0438, i.e. KernelSU #3877)"
         env:
           KSUD_SHA256: d7fec18cd9c2bc7b6e437797e3ac8898449187b51b46698cc3dc59ffa21b21b6
           MANAGER_SHA256: d3b07d2638745e79faa765c9bfe9281269414399e0550a13cc186a88e645fbb4
