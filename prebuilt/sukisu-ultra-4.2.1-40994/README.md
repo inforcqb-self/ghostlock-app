@@ -24,6 +24,28 @@ strings ksud | grep 'uapi:'   ->   "4.2.1 (uapi: 5)"     (VERSION_NAME)
 ELF64, class 2, machine 183 (AArch64)
 ```
 
+Run on the device (PJA110, pushed to /data/local/tmp and removed again):
+
+```
+$ ksud -V        ->  ksud 4.2.1 (uapi: 5)
+$ ksud late-load --help
+  --magica [<MAGICA>]            Use adb root to execute late-load for jailbreaking by Magica
+  --allow-shell                  Pass allow_shell=1 when loading kernelsu.ko
+  --post-magica                  Restore adb properties after magica late-load
+  --kmi <KMI>                    Specify kernel KMI version instead of auto-detection
+  --package-name <PACKAGE_NAME>  manager package name [default: com.sukisu.ultra]
+  --spoof-release / --spoof-version …
+```
+
+So the plain `ksud late-load` the chain runs is still the no-flag form (embedded LKM + stage
+scripts), and its default manager package is the bundled one.
+
+One detail worth knowing when reading device-side logs: `build.rs` bakes
+`VERSION_CODE = 40000 - 2815 + git rev-list --count`, and that count differs slightly between the
+two jobs of the same release run -- this `ksud` carries **40992**, the manager APK carries
+**40994**. That is upstream's own shipped combination (both are artifacts of run 38704356559), not
+a mismatch introduced by this pin.
+
 The KernelSU #3877 selinux-hide fix that the previous pin needed a fork PR for is now **upstream
 stable**: `kernel/feature/selinux_hide.c` at `v4.2.1` is blob `459f99f9…`, the post-fix content the
 fork's `ci` branch had ported (it used to be `033cab8d…`, the pre-fix blob at `6a2f6324`). So the
