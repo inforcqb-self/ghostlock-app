@@ -32,31 +32,33 @@ Keep-this-in-mind facts about the vendored copies:
 ## Also shipped in the APK: SukiSU-Ultra's `ksud` and its manager app
 
 Neither is compiled here. The build step `Stage the pinned ksud + manager` copies two files out of
-`prebuilt/sukisu-ultra-3877-7a1c0438/` (their sha256 is asserted in the workflow, and the provenance
-is in that directory's README) into the APK. They have two different provenances on purpose:
+`prebuilt/sukisu-ultra-4.2.1-40994/` (their sha256 is asserted in the workflow, and the provenance is
+in that directory's README) into the APK. Both now come from the **same official stable release**,
+SukiSU-Ultra `v4.2.1` (versionCode 40994):
 
-* `lib/arm64-v8a/libksud.so` — the standalone `ksud`, **built by this project's own fork**
-  `inforcqb/SukiSU-Ultra`, whose branch `ci` is upstream main `223897c7` plus one ported KernelSU
-  commit: `7a1c0438` "sync: port KernelSU's selinux hide fix (#3877) verbatim"
-  (`kernel/feature/selinux_hide.c`, +214/−125, from `tiann/KernelSU@a85dcbcf`). Built through that
-  fork's PR #1 (`ci` → `main`, the `pull_request` path with a temporary keystore), CI run
-  `38119744728`, artifact `ksud-aarch64-linux-android`, sha256
-  `d7fec18cd9c2bc7b6e437797e3ac8898449187b51b46698cc3dc59ffa21b21b6`, 6999648 bytes. The chain
+* `lib/arm64-v8a/libksud.so` — the standalone `ksud` built by upstream's own CI for the `v4.2.1` tag
+  (run `38704356559`, the `Release` workflow for tag `v4.2.1`, head `fd2a8515`, 2026-10-15; artifact
+  `ksud-aarch64-linux-android`), sha256
+  `3dcbf20265743b094111c7f41022206c8434affb8f6904322428cc94460ce02e`, 7162112 bytes. The chain
   invokes it as `ksud resetprop …` (busybox style), by absolute path, from the app's own copy (the
   private staged directory, and `98ca011` additionally installs it to `/data/adb/ksud` before
   `late-load`). The kernel module is packed **inside** it (`pack_lkm`), which is why no separate
-  `.ko` is shipped.
-* `assets/device/sukisu-manager.apk` — **upstream's official** manager APK
-  (`SukiSU-Ultra/SukiSU-Ultra` CI run `37934517573`, `main@4c15fca1`, file
-  `SukiSU_v4.2.0_40965-release.apk`, sha256
-  `d3b07d2638745e79faa765c9bfe9281269414399e0550a13cc186a88e645fbb4`), so a device that cannot reach
-  GitHub still gets a manager: the chain pushes it and runs `pm install -r` with root. Its package is
-  `com.sukisu.ultra`, which is what `ChainSpec.KSU_MANAGER_PACKAGE` names. It stays the official
-  build because the fork's LKM pins **two** manager certificates — the official one and that run's
-  temporary PR key (both verified with `apksigner`) — so the fork-built `ksud` accepts it and the
-  device-side install remains a no-op upgrade.
+  `.ko` is shipped. The KernelSU #3877 selinux-hide fix — the reason an earlier pin used this
+  project's own fork build — is part of this release (`kernel/feature/selinux_hide.c` at the tag is
+  blob `459f99f9…`, the post-fix content), so no fork build is involved any more.
+* `assets/device/sukisu-manager.apk` — the same release's published asset
+  `SukiSU_v4.2.1_40994-release.apk` (`package com.sukisu.ultra`, `versionCode 40994`, signer
+  SHA-256 `947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef`), sha256
+  `c7f69280cf468e8415c585ff31f963d0147386831217a1e89b822afddc5f40ed`, 17173205 bytes — so a device
+  that cannot reach GitHub still gets a manager: the chain pushes it and runs `pm install -r` with
+  root. Its package is `com.sukisu.ultra`, which is what `ChainSpec.KSU_MANAGER_PACKAGE` names. The
+  pair is self-consistent: the `aarch64-android13-5.15-lkm` module from that same run (the copy
+  embedded in this `ksud`) pins exactly this one manager certificate and no temporary key, and the
+  previous pin (v4.2.0 / 40965) carried the same signer — so on a device that already has the
+  manager, the install is an in-place upgrade (no uninstall, no lost grants).
 
-The pin before this one was an upstream `main@4c15fca1` pair, and before that a KernelSU
+The pins before this one were our fork's `ci` `ksud` (`ci@7a1c0438`, the KernelSU #3877 port) paired
+with the official v4.2.0 manager, an upstream `main@4c15fca1` pair, and before that a KernelSU
 `v3.3.0-69-gdf03912f` pair (their READMEs are in git history) — committed rather than fetched
 for the same reason: another repository's CI artifacts need a token this workflow does not have,
 and a pinned pair with asserted sha256s makes the build reproducible.
