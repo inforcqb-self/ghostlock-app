@@ -94,35 +94,38 @@ jobs:
           make ghostlock
           "${{ runner.temp }}/ondk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-all ghostlock || true
 
-      # Both payloads come from the **same official stable SukiSU-Ultra release**, v4.2.1 (40994),
-      # so the pair is self-consistent by construction (see prebuilt/sukisu-ultra-4.2.1-40994/README.md):
+      # Both payloads are assets of the **same official SukiSU-Ultra release**, v4.2.1-r2 (41068),
+      # so the pair is self-consistent by construction (see prebuilt/sukisu-ultra-4.2.1-r2-41068/README.md):
       #
-      #  * `ksud` -- that tag's own CI build of the standalone aarch64 tool (run 38704356559, the
-      #    `Release` workflow for tag v4.2.1, head fd2a8515; artifact `ksud-aarch64-linux-android`).
+      #  * `ksud` -- that release's own asset `ksud-aarch64-linux-android` (the release attaches the
+      #    tool itself; the previous pin had to quote a CI run because that release's publish job had
+      #    failed). It self-reports `4.2.1-r2 (uapi: 6)`, one uapi step above the previous pin -- both
+      #    payloads of this pin come from this one release, so they speak the same version.
       #    The kernel module is packed *inside* ksud, so there is no separate .ko. ->
       #    jniLibs/arm64-v8a/libksud.so; the chain calls it as `ksud resetprop …` (busybox style)
       #    and `ksud late-load`, and installs this same copy to /data/adb/ksud before late-load.
-      #    The KernelSU #3877 selinux-hide fix that used to need our own fork's PR build is in this
-      #    release already (selinux_hide.c = blob 459f99f9…, the post-fix content).
-      #  * the manager APK -- the same release's published asset (`SukiSU_v4.2.1_40994-release.apk`,
-      #    `com.sukisu.ultra`, signer 947ae944…, the cert that release's LKM pins) ->
-      #    `assets/device/sukisu-manager.apk`. It is bundled because the device must not have to
+      #    `resetprop --delete` is still in this build, which the chain's closing step uses.
+      #  * the manager APK -- the same release's asset (`SukiSU_v4.2.1-r2_41068-release.apk`, the
+      #    plain build, not the release's `-spoofed` variant; `com.sukisu.ultra`, signer 947ae944…)
+      #    -> `assets/device/sukisu-manager.apk`. It is bundled because the device must not have to
       #    reach GitHub (国内网络到 GitHub 不稳): the app pushes it and the chain installs it with
-      #    root (`pm install -r`). Same signer as the previous pin (v4.2.0 / 40965), so on a device
-      #    that already has it this is an in-place upgrade -- no uninstall, no lost grants.
+      #    root (`pm install -r`). The signer is unchanged from the previous pin (v4.2.1 / 40994),
+      #    so on a device that already has it this is an in-place upgrade -- no uninstall, no lost
+      #    grants.
       #
-      # Pinned copies instead of a fetch, because another repository's CI artifacts need a token this
-      # job does not have. The sha256 below is what makes the pin real: a silent swap fails the build.
+      # Pinned copies instead of a fetch: a build that downloads them would change whenever upstream
+      # re-uploads an asset, and the device-side point is that the app carries both files itself. The
+      # sha256 below is what makes the pin real: a silent swap fails the build.
       # The step name is quoted on purpose: a plain YAML scalar cannot contain ": " (the first
       # version of this line broke the whole workflow file -- the run failed in 0s with
       # "workflow file issue" and no jobs).
-      - name: "Stage the pinned ksud + manager (official SukiSU-Ultra v4.2.1, 40994)"
+      - name: "Stage the pinned ksud + manager (official SukiSU-Ultra v4.2.1-r2, 41068)"
         env:
-          KSUD_SHA256: 3dcbf20265743b094111c7f41022206c8434affb8f6904322428cc94460ce02e
-          MANAGER_SHA256: c7f69280cf468e8415c585ff31f963d0147386831217a1e89b822afddc5f40ed
+          KSUD_SHA256: abc3822f6b4b8521d57f9159aa5b7a56b51b4013eb13f9e38297339cbd79ddec
+          MANAGER_SHA256: f60ba9fd7c3d8fe3966d7641ab755176f80100bcb8e9fa28d48856ecf931f464
         run: |
           set -euo pipefail
-          SRC=prebuilt/sukisu-ultra-4.2.1-40994
+          SRC=prebuilt/sukisu-ultra-4.2.1-r2-41068
           test -s "$SRC/ksud"
           test -s "$SRC/sukisu-manager.apk"
           mkdir -p app/src/main/jniLibs/arm64-v8a app/src/main/assets/device
