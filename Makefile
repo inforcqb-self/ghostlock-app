@@ -26,6 +26,9 @@ CXX_SRCS := \
   src/core/memory/heap_context.cpp \
   src/core/pi_race.cpp \
   src/core/pipe_daemon.cpp \
+  src/core/reclaim/page_carrier.cpp \
+  src/core/reclaim/unix_skb_carrier.cpp \
+  src/core/reclaim/msg_msg_carrier.cpp \
   app/src/main/jni/gl_server.cpp \
   src/core/routes/route_controller.cpp \
   src/core/routes/route_threads.cpp \
@@ -165,7 +168,7 @@ NATIVE_HOST_TESTS := \
   tcp_zerocopy_route_test select_stack_route_test \
   multicast_waiter_route_test target_constants_test native_resource_test \
   offsets_json_test profile_binary_test futex_hash_test number_parse_test \
-  runtime_paths_test handoff_probe_test victim_context_test
+  runtime_paths_test handoff_probe_test victim_context_test page_carrier_test
 
 native-host-tests: $(addprefix $(HOST_BUILD_DIR)/,$(NATIVE_HOST_TESTS))
 	@status=0; for test in $^; do $$test || status=1; done; exit $$status
@@ -279,3 +282,10 @@ product: ghostlock
 clean:
 	rm -f ghostlock
 	rm -rf .build/native .build/host
+
+# The carrier contract both backends share, plus the two exported writes.
+# Only the portable unit is linked: the unix and msg_msg backends are Linux
+# syscall code and are exercised by the device stage instead.
+$(HOST_BUILD_DIR)/page_carrier_test: src/core/tests/page_carrier_test.cpp src/core/reclaim/page_carrier.cpp src/core/reclaim/page_carrier.h
+	@mkdir -p $(HOST_BUILD_DIR)
+	$(HOST_CXX) $(HOST_CXXFLAGS) -Isrc/core src/core/tests/page_carrier_test.cpp src/core/reclaim/page_carrier.cpp -o $@
