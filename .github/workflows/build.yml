@@ -94,36 +94,40 @@ jobs:
           make ghostlock
           "${{ runner.temp }}/ondk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-all ghostlock || true
 
-      # Both payloads come from the **same upstream `main` CI run**, head 080ba098, so the pair is
-      # self-consistent (see prebuilt/sukisu-ci-main-080ba098/README.md). It is a CI build and not a
-      # release because the newest stable (`v4.2.1-r2`) predates KernelSU #3945 by two hours; `main`
-      # is the only tree with both #3877 (the selinux-hide timing side-channel fix) and #3945:
+      # Both payloads are assets of the **same official stable SukiSU-Ultra release**, v4.3.0 (41100),
+      # so the pair is self-consistent by construction (see prebuilt/sukisu-ultra-4.3.0-41100/README.md).
+      # No CI-run build is needed any more: releases publish the `ksud` themselves since v4.2.1-r1,
+      # and v4.3.0 carries everything the previous pins were chasing -- its
+      # kernel/feature/selinux_hide.c is blob 2a41b805…, the identical blob to tiann/KernelSU's
+      # main, i.e. KernelSU #3877 (selinux-hide timing side channel) plus #3945 and later fixes:
       #
-      #  * `ksud` -- the standalone aarch64 tool from run 40585558597 (`Build Manager`, push to main,
-      #    2026-10-27; artifact `ksud-aarch64-linux-android`). It says `4.2.1-r2-29-g080ba098`, i.e.
-      #    29 commits past tag v4.2.1-r2. The kernel module is packed *inside* ksud, so there is no
-      #    separate .ko. -> jniLibs/arm64-v8a/libksud.so; the chain calls it as `ksud resetprop …`
-      #    (busybox style) and `ksud late-load`, and installs this same copy to /data/adb/ksud.
-      #  * the manager APK -- that run's `Manager` artifact (`SukiSU_v4.2.1-r2_41097-release.apk`,
-      #    `com.sukisu.ultra`, signer 947ae944…, the cert the run's LKM pins) ->
-      #    `assets/device/sukisu-manager.apk`. It is bundled because the device must not have to
-      #    reach GitHub (国内网络到 GitHub 不稳): the app pushes it and the chain installs it with
-      #    root (`pm install -r`). Same signer as every previous pin, so on a device that already has
-      #    the manager this is an in-place upgrade -- no uninstall, no lost grants.
+      #  * `ksud` -- the release asset `ksud-aarch64-linux-android`; reports `4.3.0 (uapi: 6)`.
+      #    The kernel module is packed *inside* it, so there is no separate .ko. ->
+      #    jniLibs/arm64-v8a/libksud.so; the chain calls it as `ksud resetprop …` (busybox style)
+      #    and `ksud late-load`, and installs this same copy to /data/adb/ksud. Both behaviours the
+      #    chain relies on were re-checked at this tag: `resetprop --delete` still exists and
+      #    `late-load`'s new flags (--magica/--allow-shell/--post-magica/--kmi) stay optional, so
+      #    the plain no-flag form still loads the embedded LKM.
+      #  * the manager APK -- the release's asset `SukiSU_v4.3.0_41100-release.apk` (the plain build,
+      #    not the `-spoofed` variant; `com.sukisu.ultra`, signer 947ae944…, the cert the release's
+      #    LKM pins) -> `assets/device/sukisu-manager.apk`. It is bundled because the device must not
+      #    have to reach GitHub (国内网络到 GitHub 不稳): the app pushes it and the chain installs it
+      #    with root (`pm install -r`). Same signer as every previous pin, so on a device that
+      #    already has the manager this is an in-place upgrade -- no uninstall, no lost grants.
       #
-      # Pinned copies instead of a fetch, because another repository's CI artifacts need a token this
-      # job does not have (and expire). The sha256 below is what makes the pin real: a silent swap
-      # fails the build.
+      # Pinned copies instead of a fetch, because the device cannot rely on reaching GitHub and the
+      # build should not either. The sha256 below is what makes the pin real: a silent swap fails the
+      # build.
       # The step name is quoted on purpose: a plain YAML scalar cannot contain ": " (the first
       # version of this line broke the whole workflow file -- the run failed in 0s with
       # "workflow file issue" and no jobs).
-      - name: "Stage the pinned ksud + manager (SukiSU-Ultra main CI, 4.2.1-r2-29-g080ba098)"
+      - name: "Stage the pinned ksud + manager (official SukiSU-Ultra v4.3.0, 41100)"
         env:
-          KSUD_SHA256: 0a6529dd5e59bd1b2944e9715e3ac10208c60fe1ae3721f7745dad4206ccd4b5
-          MANAGER_SHA256: c13f4884b47e6648fb116ed49647eaa544ee54d6c30467b933164bdccf25aa5e
+          KSUD_SHA256: e9fcad8189397d5c96965819ae1f184557c7a51701fed183a1e0190242a89501
+          MANAGER_SHA256: a928eb57ad34b105233f92dcd55e54dd883482e417970276329a7d0f0979e212
         run: |
           set -euo pipefail
-          SRC=prebuilt/sukisu-ci-main-080ba098
+          SRC=prebuilt/sukisu-ultra-4.3.0-41100
           test -s "$SRC/ksud"
           test -s "$SRC/sukisu-manager.apk"
           mkdir -p app/src/main/jniLibs/arm64-v8a app/src/main/assets/device
