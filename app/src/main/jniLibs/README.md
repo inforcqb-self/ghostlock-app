@@ -22,29 +22,26 @@
 由 App 在跑链之前推送到设备的 `/data/local/tmp/gl-w1/ksud`（0755），链里**用绝对路径**调用。
 `app/build.gradle.kts` 里对 `**/libksud.so` 设了 `keepDebugSymbols`（别让 llvm-strip 动它）。
 
-* **来源（钉死一个 release，仍是上游官方）**：CI 的 `Stage the pinned ksud + manager` 步骤把
-  `prebuilt/sukisu-ultra-4.3.0-r2-41150/ksud` 复制到这里，并**校验 sha256**
-  （`dec34535789f28e3ecda2788618a2e57c70f77b17b5ce129ff50026b9ba42f35`，7867384 B）。
-  这份 `ksud` 就是上游 **`SukiSU-Ultra/SukiSU-Ultra` 官方 `v4.3.0-r2`（2026-11-05，tag `645ef986`）
-  的 release asset** `ksud-aarch64-linux-android`；二进制里自报 `4.3.0-r2 (uapi: 6)`。
+* **来源（钉死一个 `main` CI 构建）**：CI 的 `Stage the pinned ksud + manager` 步骤把
+  `prebuilt/sukisu-ci-main-8662564/ksud` 复制到这里，并**校验 sha256**
+  （`361a880d63702c09ae2ad52d277e17272bbe5eafce1cab6812ec5fd0f714dab5`，7877344 B）。
+  这份 `ksud` 是上游 `SukiSU-Ultra/SukiSU-Ultra` **`main` 的 CI 产物**：run `42467362341`
+  （`Build Manager`，head `8662564`，2026-11-08），产物 `ksud-aarch64-linux-android`；
+  二进制里自报 `4.3.0-r2-13-g86625649 (uapi: 6)`（`git describe` 烧进去，等于自带出处）。
   **内核模块就打包在它里面**（`pack_lkm`），所以不需要单独下载 `.ko`。
-  从 `v4.2.1-r1` 起上游 release 会直接挂 ksud，所以"最新 release 的 ksud"是字面可取的，
-  不需要去 `main` 的 CI 产物里捞。链依赖的两个行为在此 tag 仍成立：
-  `resetprop --delete`（`-d`）还在；`late-load` 的 `--magica/--allow-shell/--post-magica/--kmi`
-  全是可选，裸 `ksud late-load` 仍走内嵌 LKM + stage 脚本。
-  selinux-hide 这条线在这个 release 里到 **#3936** 为止（**#3877** 时序侧信道 = SukiSU `b445d0888`
-  / 上游 `a85dcbcf`；**#3945** = SukiSU `15b64d095` / 上游 `528bafc56`；#3936 = SukiSU `e67b14e6`），
-  该 tag 的 `kernel/feature/selinux_hide.c` blob 是 `2a41b805…`。
-  **注意**：上游 2026-11-06 的 **#3969**（symtab 查找优化的 refactor）在 SukiSU `main` 里（`e17a48a7d`，
-  blob `385b415a…`），但**不在这个 release 里**（r2 早一天发布）——要那一版就得用 `main` 的 CI 产物，
-  这是"官方稳定 release"的取舍。
-  换版本的方法写在 `prebuilt/sukisu-ultra-4.3.0-r2-41150/README.md`（更早的官方 v4.3.0、`main` CI 构建、
-  官方 v4.2.1、fork `ci`、上游 `main@4c15fca1` 几版见 git 历史）。
+  为什么用 CI 而不是最新 release：`v4.3.0-r2`（41150）带的是 selinux-hide 到 **#3936** 为止
+  （blob `2a41b805…`），而上游 2026-11-06 的 **#3969**（`Mark original type datum to save symtab search`，
+  SukiSU 同日移植 `e17a48a7d`）**还没有进任何 release**；`main` 上该文件 blob `385b415a…` 与
+  上游 `main` **逐字节相同**。所以这里取 `main`，代价只是管理端的 versionCode 变成 CI 计数器。
+  链依赖的两个行为同样成立：`resetprop --delete`（`-d`）还在；`late-load` 的
+  `--magica/--allow-shell/--post-magica/--kmi` 全是可选，裸 `ksud late-load` 仍走内嵌 LKM + stage 脚本。
+  换版本的方法写在 `prebuilt/sukisu-ci-main-8662564/README.md`（更早的官方 v4.3.0-r2 / v4.3.0、
+  `main@080ba098` 的 CI 构建、官方 v4.2.1、fork `ci`、上游 `main@4c15fca1` 几版见 git 历史）。
 * 该文件**不提交进仓库**（`.gitignore` 已忽略，提交的是 `prebuilt/` 里那两份原件）；本地手工构建：
 
   ```sh
   mkdir -p app/src/main/jniLibs/arm64-v8a
-  cp prebuilt/sukisu-ultra-4.3.0-r2-41150/ksud app/src/main/jniLibs/arm64-v8a/libksud.so
+  cp prebuilt/sukisu-ci-main-8662564/ksud app/src/main/jniLibs/arm64-v8a/libksud.so
   ```
 * 为什么打进 APK：链的第 8b 步要把 `ro.secure` / `ro.debuggable` 写回去，而**裸 `resetprop`
   不在 `adb shell` 的 PATH 里**（真机实测：设备上只有管理端安装目录里那个符号链接
@@ -60,17 +57,19 @@
   链里的 `resetprop`（步骤 8b）本来就用自带副本，不走这个路径。
 * 许可证：**GPL-3.0**（KernelSU 家族），见 `app/src/main/jni/THIRD_PARTY_NOTICES.md`。
 
-## `assets/device/sukisu-manager.apk` —— 管理端（上游官方 `v4.3.0-r2`，41150）
+## `assets/device/sukisu-manager.apk` —— 管理端（上游 `main` CI 构建，41163）
 
-CI 的同一步把 `prebuilt/sukisu-ultra-4.3.0-r2-41150/sukisu-manager.apk` 复制到
+CI 的同一步把 `prebuilt/sukisu-ci-main-8662564/sukisu-manager.apk` 复制到
 `app/src/main/assets/device/sukisu-manager.apk`（也不提交进仓库，sha256
-`6fe64e7bcf9fd768c58f46afea2f27ee9fb85d2783472a7e81334df21e700636`，20131351 B）；
+`fd3c072df508e71975976f891a4240fccd4a9937422a426358b7fa9bc6ac7964`，20282847 B）；
 文件名保持 `sukisu-manager.apk` 是为了不动链里的 `ChainSpec.KSU_MANAGER_APK`。
-它就是 `v4.3.0-r2` 那个 release 的正式发布包 `SukiSU_v4.3.0-r2_41150-release.apk`（取的是普通版，
-不是同一个 release 里那个 `-spoofed` 变体）：`package com.sukisu.ultra`、`versionCode 41150`、
-`versionName v4.3.0-r2`，签名证书 SHA-256 `947ae944…`（`apksigner` 实测），正是该 release 的 LKM
-里钉的那一张 —— 两者同源。与之前每一版**同一个签名者**，所以设备侧 `pm install -r` 始终是原地升级
-（40965 → 40994 → 41068 → 41097 → 41100 → 41150 都不需要卸载、不丢授权）。
+它就是上面同一次 run（`42467362341`）的 `Manager` 产物 `SukiSU_v4.3.0-r2_41163-release.apk`：
+`package com.sukisu.ultra`、`versionCode 41163`、`versionName v4.3.0-r2`，签名证书
+SHA-256 `947ae944…`（`apksigner` 实测），正是该 run 的 LKM 里钉的那一张 —— 两者同源。
+与之前每一版**同一个签名者**，所以设备侧 `pm install -r` 始终是原地升级
+（40965 → 40994 → 41068 → 41097 → 41100 → 41150 → 41163 都不需要卸载、不丢授权）。
+`versionName` 还写 `v4.3.0-r2` 而 code 是 41163（release 那次是 41150）：CI 每次构建把 code 往上推，
+release tag 不推，两者在同一条 `v4.3.0-r2` 线上 —— 取 `main` 的代价只是这个计数器。
 链的第 7b 步把它推到 `/data/local/tmp/gl-w1/sukisu-manager.apk` 并用 root `pm install -r` 装上，
 这样设备侧不需要访问 GitHub 就能拿到管理端（`su` 授权、模块管理）。
 装上的包名因此是 **`com.sukisu.ultra`**，与 `ChainSpec.KSU_MANAGER_PACKAGE` 一致
