@@ -94,26 +94,31 @@ jobs:
           make ghostlock
           "${{ runner.temp }}/ondk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-all ghostlock || true
 
-      # Both payloads are assets of the **same official stable SukiSU-Ultra release**, v4.3.0 (41100),
-      # so the pair is self-consistent by construction (see prebuilt/sukisu-ultra-4.3.0-41100/README.md).
-      # No CI-run build is needed any more: releases publish the `ksud` themselves since v4.2.1-r1,
-      # and v4.3.0 carries everything the previous pins were chasing -- its
-      # kernel/feature/selinux_hide.c is blob 2a41b805…, the identical blob to tiann/KernelSU's
-      # main, i.e. KernelSU #3877 (selinux-hide timing side channel) plus #3945 and later fixes:
+      # Both payloads are assets of the **same official stable SukiSU-Ultra release**, v4.3.0-r2
+      # (41150), so the pair is self-consistent by construction
+      # (see prebuilt/sukisu-ultra-4.3.0-r2-41150/README.md). Releases publish the `ksud`
+      # themselves since v4.2.1-r1, so no CI-run build is involved:
       #
-      #  * `ksud` -- the release asset `ksud-aarch64-linux-android`; reports `4.3.0 (uapi: 6)`.
+      #  * `ksud` -- the release asset `ksud-aarch64-linux-android`; reports `4.3.0-r2 (uapi: 6)`.
       #    The kernel module is packed *inside* it, so there is no separate .ko. ->
       #    jniLibs/arm64-v8a/libksud.so; the chain calls it as `ksud resetprop …` (busybox style)
       #    and `ksud late-load`, and installs this same copy to /data/adb/ksud. Both behaviours the
-      #    chain relies on were re-checked at this tag: `resetprop --delete` still exists and
-      #    `late-load`'s new flags (--magica/--allow-shell/--post-magica/--kmi) stay optional, so
-      #    the plain no-flag form still loads the embedded LKM.
-      #  * the manager APK -- the release's asset `SukiSU_v4.3.0_41100-release.apk` (the plain build,
-      #    not the `-spoofed` variant; `com.sukisu.ultra`, signer 947ae944…, the cert the release's
-      #    LKM pins) -> `assets/device/sukisu-manager.apk`. It is bundled because the device must not
-      #    have to reach GitHub (国内网络到 GitHub 不稳): the app pushes it and the chain installs it
-      #    with root (`pm install -r`). Same signer as every previous pin, so on a device that
-      #    already has the manager this is an in-place upgrade -- no uninstall, no lost grants.
+      #    chain relies on were re-checked in this tag's tree: `resetprop --delete` still exists and
+      #    `late-load`'s flags (--magica/--allow-shell/--post-magica/--kmi) stay optional, so the
+      #    plain no-flag form still loads the embedded LKM.
+      #  * the manager APK -- the release's asset `SukiSU_v4.3.0-r2_41150-release.apk` (the plain
+      #    build, not the `-spoofed` variant; `com.sukisu.ultra`, signer 947ae944…, the cert the
+      #    release's LKM pins) -> `assets/device/sukisu-manager.apk`. It is bundled because the
+      #    device must not have to reach GitHub (国内网络到 GitHub 不稳): the app pushes it and the
+      #    chain installs it with root (`pm install -r`). Same signer as every previous pin, so on a
+      #    device that already has the manager this is an in-place upgrade -- no uninstall, no lost
+      #    grants.
+      #
+      # Kernel side: this tag carries the selinux-hide line through #3877 (the timing side channel),
+      # #3945 and #3936 (blob 2a41b805…). Upstream's later #3969 (a symtab-search refactor, synced
+      # into SukiSU main as e17a48a7d on 2026-11-06) is NOT in this release -- r2 was published one
+      # day earlier -- so main's file is 385b415a…. That is the deliberate trade for an official
+      # stable release; a main CI pin is the alternative if that commit ever matters.
       #
       # Pinned copies instead of a fetch, because the device cannot rely on reaching GitHub and the
       # build should not either. The sha256 below is what makes the pin real: a silent swap fails the
@@ -121,13 +126,13 @@ jobs:
       # The step name is quoted on purpose: a plain YAML scalar cannot contain ": " (the first
       # version of this line broke the whole workflow file -- the run failed in 0s with
       # "workflow file issue" and no jobs).
-      - name: "Stage the pinned ksud + manager (official SukiSU-Ultra v4.3.0, 41100)"
+      - name: "Stage the pinned ksud + manager (official SukiSU-Ultra v4.3.0-r2, 41150)"
         env:
-          KSUD_SHA256: e9fcad8189397d5c96965819ae1f184557c7a51701fed183a1e0190242a89501
-          MANAGER_SHA256: a928eb57ad34b105233f92dcd55e54dd883482e417970276329a7d0f0979e212
+          KSUD_SHA256: dec34535789f28e3ecda2788618a2e57c70f77b17b5ce129ff50026b9ba42f35
+          MANAGER_SHA256: 6fe64e7bcf9fd768c58f46afea2f27ee9fb85d2783472a7e81334df21e700636
         run: |
           set -euo pipefail
-          SRC=prebuilt/sukisu-ultra-4.3.0-41100
+          SRC=prebuilt/sukisu-ultra-4.3.0-r2-41150
           test -s "$SRC/ksud"
           test -s "$SRC/sukisu-manager.apk"
           mkdir -p app/src/main/jniLibs/arm64-v8a app/src/main/assets/device
